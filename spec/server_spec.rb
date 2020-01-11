@@ -21,7 +21,14 @@ describe Server do
         getmessage = client.send_msg "get setted"
         expect(getmessage).to eq "set_test"
       end
-    end
+    end 
+
+    context "with wrong command" do
+      it "returns ERROR" do
+        message = system("telnet localhost 1892")
+        byebug
+      end
+    end 
 
     context "with negative expiration time" do
       it "returns STORED" do
@@ -29,7 +36,7 @@ describe Server do
         optionsSet = prettify_options("expired", 0, -1, 7, "", "expired")
 
         response = Server::CACHE.get("expired")
-        expect(response).to eq nil
+        expect(response).to be_falsey
       end
     end
 
@@ -168,4 +175,6 @@ describe Server do
       value:     options[5]
     }
   end
+
+  
 end

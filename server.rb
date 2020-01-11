@@ -30,6 +30,8 @@ class Server
 
           command = input.first
 
+          close if command == "quit"
+
           command_class = command.match?(/^get/) ? Commands::Retrieval : Commands::Storage 
 
           command_class.new(client, input).call
@@ -38,6 +40,11 @@ class Server
       end
     end
   end
+
+  def close
+    @server.close
+  end 
+
 end
 
 
