@@ -79,6 +79,11 @@ class Cache
 
   alias_method :gets, :get 
 
+  def flush_all
+    @keys = {}
+    true
+  end
+
   private
 
   def valid_key?(key)

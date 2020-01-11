@@ -22,6 +22,30 @@ describe Server do
         expect(getmessage).to eq "set_test"
       end
     end
+
+    context "with negative expiration time" do
+      it "returns STORED" do
+        
+        optionsSet = prettify_options("expired", 0, -1, 7, "", "expired")
+
+        response = Server::CACHE.get("expired")
+        expect(response).to eq nil
+      end
+    end
+
+    context "with positive expiration time" do
+      it "returns STORED" do
+        
+        client.send_msg "set expired2 expired_test 4"
+
+        sleep(2)
+        response1 = Server::CACHE.get("expired2")
+        expect(response1).to be_truthy
+        sleep(2)
+        response2 = Server::CACHE.get("expired2")
+        expect(response2).to be_falsey
+      end
+    end
   end
 
   describe "ADD" do
@@ -107,7 +131,7 @@ describe Server do
       it "returns STORED" do
         optionsSet = prettify_options("castest", "0", "0", "4", "", "test")
         Server::CACHE.set(optionsSet)
-        options = prettify_options("castest", "0", "0", "8", "10", "castest2")
+        options = prettify_options("castest", "0", "0", "8", "11", "castest2")
         message = Server::CACHE.cas(options)
         expect(message).to eq "STORED"
       end
