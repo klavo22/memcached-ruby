@@ -7,13 +7,11 @@ module Commands
       command = @options.first
       key = @options[1]
 
-      record = if Server::CACHE.respond_to?(command)
-        Server::CACHE.get(key)
-      else
-        "CLIENT_ERROR"
-      end
+      return client_puts "ERROR" if error?
 
-       if record
+      record = Server::CACHE.get(key)
+
+      if record
         id = command == "gets" ? " #{record[:cas_token]}" : ''
         
         client_puts "VALUE #{key} #{record[:flags]} #{record[:bytes]}#{id}"
@@ -21,6 +19,12 @@ module Commands
       end
 
       client_puts "END"
+    end
+
+    private 
+
+    def error?
+      !Server::CACHE.respond_to?(@options.first) || @options[1].empty?
     end
 
   end

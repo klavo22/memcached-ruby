@@ -1,19 +1,26 @@
 require_relative "base"
+require_relative "storage/validator"
 
 module Commands
   class Storage < Base
     def call
+
+      command = @options[0]
+      options = prettify_options
+      validator = Validator.new(command, options)
+
+      return client_puts("ERROR") if validator.error?
+      return client_puts("CLIENT_ERROR bad command line format") if validator.client_error?
+
       value = client_gets
       
       Logger.info(value, add: true)
-      
-      command = @options.first
 
-      response = if Server::CACHE.respond_to?(command) && valid?(options, value)
-          Server::CACHE.send(command, { value: value, **options})
-      else
-        "CLIENT_ERROR"
+      if validator.invalid_bytes?(value)
+        return client_puts("CLIENT_ERROR bad data chunk")
       end
+
+      response = Server::CACHE.send(command, { value: value, **options})
 
       if command != "cas" && @options[5] != 'noreply'
         client_puts "#{response}"
@@ -24,7 +31,7 @@ module Commands
 
     private
 
-    def options
+    def prettify_options
       {   
         key:       @options[1],
         flags:     @options[2],
@@ -32,40 +39,6 @@ module Commands
         bytes:     @options[4],
         cas_token: @options[0] == "cas" ? @options[5] : "0"
       }
-    end
-
-    def valid?(options, value)
-      return false unless !params_are_blank?
-      return false unless value.size.eql?(options[:bytes].to_i) 
-      return false unless is_int?(options[:exptime]) 
-      return false unless is_int?(options[:flags])
-      if cas?
-        return false unless is_int?(options[:cas_token], positive: false)
-      end
-      true
-    end
-    
-
-    def params_are_blank?
-      
-      keys = [:key, :flags, :exptime, :bytes]
-      keys.push(:cas_token) if cas?
-      
-      keys.any? do |key|
-        options[key].nil? || options[key].empty?
-      end
-    end
-
-    def cas?
-      @options[0] == "cas"
-    end
-
-    def is_int?(value, positive: true)
-      if positive
-        !value.match(/^\d+$/).nil?
-      else
-        !value.match(/^(-?)\d+$/).nil?
-      end
     end
 
   end

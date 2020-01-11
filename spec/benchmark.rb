@@ -4,7 +4,7 @@ require_relative '../server'
 
 thread = Thread.new { Server.new(1891).start }
 
-n = 100000
+n = 10
 
 Benchmark.bm do |x|
   x.report "set:" do
