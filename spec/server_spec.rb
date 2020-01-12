@@ -9,7 +9,7 @@ require_relative "../commands/storage"
 
 describe Server do
   let(:client) { Client.new(1892) }
-
+  let(:socket) { TCPSocket.open('localhost', 1892)}
 
   describe "SET" do
     context "with valid params" do
@@ -21,22 +21,67 @@ describe Server do
         getmessage = client.send_msg "get setted"
         expect(getmessage).to eq "set_test"
       end
-    end 
+    end
 
     context "with wrong command" do
       it "returns ERROR" do
-        message = system("telnet localhost 1892")
-        byebug
+        socket.puts "pet klavo 0 0 5"
+        message = socket.gets
+        expect(message).to eq "ERROR\r\n"
       end
     end 
+
+    context "missing a parameter" do
+      it "returns ERROR" do
+        socket.puts "set klavo 0 5"
+        message = socket.gets
+        expect(message).to eq "ERROR\r\n"
+      end
+    end 
+
+    context "missing key" do
+      it "returns ERROR" do
+        socket.puts "set 0 0 5"
+        message = socket.gets
+        expect(message).to eq "ERROR\r\n"
+      end
+    end 
+
+    context "with non-numeric flags" do
+      it "returns CLIENT_ERROR bad command line format" do
+        socket.puts "set klavo a 0 5"
+        message = socket.gets
+        expect(message).to eq "CLIENT_ERROR bad command line format\r\n"
+      end
+    end
+    
+    context "with non-numeric expiration time" do
+      it "returns CLIENT_ERROR bad command line format" do
+        socket.puts "set klavo 0 a 5"
+        message = socket.gets
+        expect(message).to eq "CLIENT_ERROR bad command line format\r\n"
+      end
+    end
+    
+    context "with invalid flags" do
+      it "returns CLIENT_ERROR bad command line format" do
+        socket.puts "set klavo 4294967296 0 5"
+        message = socket.gets
+        expect(message).to eq "CLIENT_ERROR bad command line format\r\n"
+      end
+    end
 
     context "with negative expiration time" do
       it "returns STORED" do
         
-        optionsSet = prettify_options("expired", 0, -1, 7, "", "expired")
+        socket.puts "set expired 0 -1 7"
+        socket.puts "expired"
+        message = socket.gets
+        expect(message).to eq "STORED\r\n"
 
-        response = Server::CACHE.get("expired")
-        expect(response).to be_falsey
+        socket.puts "get expired"
+        response = socket.gets
+        expect(response).to eq "END\r\n"
       end
     end
 
@@ -46,13 +91,15 @@ describe Server do
         client.send_msg "set expired2 expired_test 4"
 
         sleep(2)
-        response1 = Server::CACHE.get("expired2")
-        expect(response1).to be_truthy
+        response1 = client.send_msg "get expired2"
+        expect(response1).to eq "expired_test"
         sleep(2)
-        response2 = Server::CACHE.get("expired2")
-        expect(response2).to be_falsey
+        socket.puts "get expired2"
+        message2 = socket.gets
+        expect(message2).to eq "END\r\n"
       end
     end
+  
   end
 
   describe "ADD" do
@@ -78,6 +125,9 @@ describe Server do
         expect(getmessage).to eq "addtest2"
       end
     end
+
+    
+
   end
 
   describe "REPLACE" do
@@ -136,45 +186,59 @@ describe Server do
   describe "CAS" do
     context "valid params" do
       it "returns STORED" do
-        optionsSet = prettify_options("castest", "0", "0", "4", "", "test")
-        Server::CACHE.set(optionsSet)
-        options = prettify_options("castest", "0", "0", "8", "11", "castest2")
-        message = Server::CACHE.cas(options)
-        expect(message).to eq "STORED"
+        client.send_msg "set castest test 0"
+        socket.puts "cas castest 0 0 8 12"
+        socket.puts "castest2"
+        message = socket.gets
+        expect(message).to eq "STORED\r\n"
       end
     end
 
-    context "with invalid cas token" do
+    context "with incorrect cas token" do
+
       it "returns EXISTS" do
-        optionsSet1 = prettify_options("castest2", "0", "0", "5", "", "test2")
-        optionsSet2 = prettify_options("castest3", "0", "0", "5", "", "test3")
-        Server::CACHE.set(optionsSet1)
-        Server::CACHE.set(optionsSet2)
-        options = prettify_options("castest3", "0", "0", "8", "1", "castest3")
-        message = Server::CACHE.cas(options)
-        expect(message).to eq "EXISTS"
+        socket.puts "set castest2 0 0 5 noreply"
+        socket.puts "test2"
+        socket.puts "cas castest2 0 0 5 10"
+        socket.puts "test3"
+        message = socket.gets
+        expect(message).to eq "EXISTS\r\n"
       end
     end
 
-    context "with invalid key" do
+    context "with non-existing key" do
       it "returns NOT_FOUND" do
-        options = prettify_options("castest4", "0", "0", "8", "1", "castest3")
-        message = Server::CACHE.cas(options)
-        expect(message).to eq "NOT_FOUND"
+        socket.puts "cas falsekey 0 0 5 8"
+        socket.puts "false"
+        message = socket.gets
+        expect(message).to eq "NOT_FOUND\r\n"
       end
     end
-  end
 
-  def prettify_options(*options)
-    {   
-      key:       options[0],
-      flags:     options[1].to_i,
-      exptime:   options[2].to_i,
-      bytes:     options[3].to_i,
-      cas_token: options[4].to_i,
-      value:     options[5]
-    }
-  end
+    context "with non-existing key" do
+      it "returns CLIENT_ERROR bad command line format" do
+        socket.puts "cas wrongtoken 0 0 5 18446744073709551616"
+        message = socket.gets
+        expect(message).to eq "CLIENT_ERROR bad command line format\r\n"
+      end
+    end
 
+    context "without cas token" do
+      it "returns ERROR" do
+        socket.puts "cas notoken 0 0 5"
+        message = socket.gets
+        expect(message).to eq "ERROR\r\n"
+      end
+    end
+
+    context "with negative token" do
+      it "returns CLIENT_ERROR bad command line format" do
+        socket.puts "cas negativetoken 0 0 5 -1"
+        message = socket.gets
+        expect(message).to eq "CLIENT_ERROR bad command line format\r\n"
+      end
+    end
+
+  end
   
 end
