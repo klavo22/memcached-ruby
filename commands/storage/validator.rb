@@ -38,7 +38,7 @@ class Validator
   end
 
   def is_int?(value, allow_negative: false)
-    if allow_negative == false
+    if !allow_negative
       return !value.match(/^\d+$/).nil?
     else
       return !value.match(/^(-?)\d+$/).nil?
@@ -50,7 +50,8 @@ class Validator
   end
 
   def invalid_token?
-    @options[:cas_token].to_i > MAX_64_BIT_UNSIGNED
+    token = @options[:cas_token]
+    token.to_i > MAX_64_BIT_UNSIGNED || !is_int?(token)
   end
 
   def cas?
