@@ -33,7 +33,7 @@ $client.prepend('testkey', 'prepended ')
 
 display_key
 
-$client.cas('testkey', 0, 1){"testkey cas"}
+$client.cas('testkey', 0, true){"testkey cas"}
 
 display_key
 # raw means that the content will not be Marshalled

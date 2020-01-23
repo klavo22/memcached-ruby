@@ -23,7 +23,9 @@ class Server
         puts "\nClient connected...\n\n"
 
         loop do
+    
           input = client.gets
+
           Logger.info(input)
 
           input = input.split
@@ -32,8 +34,8 @@ class Server
 
           close if command == "quit"
 
-          command_class = command.match?(/^get/) ? Commands::Retrieval : Commands::Storage 
-
+          command_class = command.start_with?("get") ? Commands::Retrieval : Commands::Storage 
+          
           command_class.new(client, input).call
 
         end
